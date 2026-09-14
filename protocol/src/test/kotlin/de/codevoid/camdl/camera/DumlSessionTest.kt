@@ -23,17 +23,23 @@ import org.junit.jupiter.api.Test
 
 class DumlSessionTest {
 
-    /** Channel-backed so delivered bytes are buffered whether or not the reader has started. */
-    private class FakeChannel : DumlChannel {
+    /**
+     * Channel-backed so delivered bytes are buffered whether or not the reader has started.
+     * Logs its own bytes, as the [DumlChannel] contract requires of implementations.
+     */
+    private class FakeChannel(private val probe: ProbeLog = ProbeLog()) : DumlChannel {
         override val name = "fake"
         val written = mutableListOf<ByteArray>()
         private val incoming = Channel<ByteArray>(Channel.UNLIMITED)
         override val inbound: Flow<ByteArray> = incoming.receiveAsFlow()
+
         override suspend fun write(bytes: ByteArray) {
+            probe.wire("fake", Direction.TX, name, bytes)
             written += bytes
         }
 
         fun deliver(bytes: ByteArray) {
+            probe.wire("fake", Direction.RX, name, bytes)
             incoming.trySend(bytes)
         }
     }
@@ -135,9 +141,10 @@ class DumlSessionTest {
     }
 
     @Test
-    fun `frames nobody asked for surface as notifications`() = runTest {
-        val channel = FakeChannel()
-        val session = DumlSession(channel, ProbeLog(), backgroundScope)
+    fun `frames nobody asked for surface as notifications and say so in the log`() = runTest {
+        val log = ProbeLog()
+        val channel = FakeChannel(log)
+        val session = DumlSession(channel, log, backgroundScope)
         val seen = CompletableDeferred<DumlFrame>()
         backgroundScope.launch { session.notifications.collect { seen.complete(it) } }
         runCurrent()
@@ -145,12 +152,16 @@ class DumlSessionTest {
         channel.deliver(response(messageId = 0x4242).encode())
 
         assertEquals(0x4242, seen.await().messageId)
+        assertTrue(
+            log.snapshot().events.filterIsInstance<ProbeEvent.Note>()
+                .any { it.message == "rx" && it.fields["for"] == "nobody" },
+        )
     }
 
     @Test
-    fun `both directions are recorded before they are interpreted`() = runTest {
-        val channel = FakeChannel()
+    fun `the session logs decoded frames and the channel logs the bytes`() = runTest {
         val log = ProbeLog()
+        val channel = FakeChannel(log)
         val session = DumlSession(channel, log, backgroundScope)
 
         val pending = async { session.request(request()) }
@@ -158,15 +169,22 @@ class DumlSessionTest {
         channel.deliver(response().encode())
         pending.await()
 
-        val wire = log.snapshot().events.filterIsInstance<ProbeEvent.Wire>()
-        assertEquals(listOf(Direction.TX, Direction.RX), wire.map { it.direction })
-        assertTrue(wire.all { it.channel == "fake" })
+        val events = log.snapshot().events
+        // Raw bytes, once, from the channel.
+        assertEquals(
+            listOf(Direction.TX, Direction.RX),
+            events.filterIsInstance<ProbeEvent.Wire>().map { it.direction },
+        )
+        // Decoded meaning, once, from the session - not the same bytes a second time.
+        val notes = events.filterIsInstance<ProbeEvent.Note>()
+        assertTrue(notes.any { it.message == "tx" && it.fields["cmd"] == "0x7/0x45#0x8092" }, "got $notes")
+        assertTrue(notes.any { it.message == "rx" && it.fields["for"] == "request" }, "got $notes")
     }
 
     @Test
     fun `garbage on the wire is recorded and does not break the next response`() = runTest {
-        val channel = FakeChannel()
         val log = ProbeLog()
+        val channel = FakeChannel(log)
         val session = DumlSession(channel, log, backgroundScope)
 
         val pending = async { session.request(request()) }

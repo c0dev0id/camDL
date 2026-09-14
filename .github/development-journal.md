@@ -5,7 +5,7 @@
 | Piece | Choice |
 |---|---|
 | Build | Gradle 9.7.1, AGP 9.4.0, Kotlin 2.4.20, JVM target 17 |
-| SDK | minSdk 30, compileSdk 37, targetSdk 36 |
+| SDK | minSdk 33, compileSdk 37, targetSdk 36 |
 | UI | Views + viewBinding, Material 3 DayNight, RecyclerView, ConstraintLayout |
 | Async | Coroutines |
 | HTTP | OkHttp 5 |
@@ -64,6 +64,33 @@ than letting the two modules drift.
 mandatory, and it is undocumented whether an app-requested local-only Wi-Fi network is
 exempt. That variable is introduced on its own once the camera protocol works, so a
 failure there is unambiguous.
+
+**minSdk 33.** BLUETOOTH_SCAN/CONNECT arrived in 31, NEARBY_WIFI_DEVICES and the
+non-deprecated GATT write and notify overloads in 33. Anything lower puts three compatibility
+branches through the most delicate code in the app, for phones this will never run on.
+
+**The channel logs bytes, the session logs frames.** A `DumlChannel` implementation records
+what actually moved — which is not always what it was handed, since a frame can be split
+across several GATT writes — and `DumlSession` records decoded frames. The log ends up with
+the raw hexdump and its meaning side by side rather than the same bytes twice.
+
+**GATT operations are serialised behind a mutex.** `BluetoothGatt` accepts one outstanding
+operation and silently drops a second: no exception, no callback, the write just never
+happens. Every operation also carries a timeout, or a call the stack accepts but never answers
+would hold the lock forever and wedge everything after it.
+
+**Characteristics are found by searching every service.** Which service holds `fff4` and
+`fff5` on this camera is a guess, and a wrong guess would look exactly like the
+characteristic being absent. The failure message lists what was actually discovered.
+
+**The BLE scan is unfiltered.** What an Osmo Action 5 Pro advertises is not reliably
+documented, and a `ScanFilter` built on a guess produces an empty scan indistinguishable from
+a camera that is switched off. Every distinct device seen is logged once.
+
+**Wi-Fi sockets are bound individually, never with `bindProcessToNetwork`.** A camera access
+point has no internet, so Android keeps the default route on cellular and anything unbound
+leaves by the wrong interface — failing in a way that looks exactly like a camera that is not
+answering. `WifiLease` hands out pre-bound sockets rather than exposing the raw `Network`.
 
 **File identity is name plus size, with no date.** SAF offers no reliable way to stamp a
 destination file with the camera's capture time, and exFAT timestamps are 2-second

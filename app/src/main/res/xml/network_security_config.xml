@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cameras serve their media over plain HTTP on their own access point and will never have a
+     certificate. The exemption is scoped to those two addresses so the rest of the app keeps
+     the platform default of no cleartext at all. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- DJI -->
+        <domain includeSubdomains="false">192.168.2.1</domain>
+        <!-- Insta360 -->
+        <domain includeSubdomains="false">192.168.42.1</domain>
+    </domain-config>
+</network-security-config>

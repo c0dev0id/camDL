@@ -19,4 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DUML protocol support: frame encoding and decoding, a resynchronising stream
   framer for reassembling frames split across BLE notifications or packed into one
   datagram, and the pairing and Wi-Fi provisioning commands for DJI cameras.
+- DJI camera connection: find the camera over Bluetooth LE, pair with it, ask it for a Wi-Fi
+  access point, join that access point and confirm the camera is reachable. Each step appears
+  in the probe log as a named stage with its timing, so a failure says where it stopped.
+- A screen showing the probe log, and a share button that exports it with credentials and
+  identifiers replaced by pseudonyms.
 - Continuous integration producing a signed APK as a rolling `dev` pre-release.

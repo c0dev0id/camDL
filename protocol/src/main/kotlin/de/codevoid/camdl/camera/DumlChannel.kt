@@ -11,6 +11,11 @@ import kotlinx.coroutines.flow.Flow
  *
  * Being an interface here rather than in the Android module is what lets the session layer -
  * correlation, timeouts, reassembly - be tested without a device.
+ *
+ * **Implementations own wire logging.** A channel records the bytes it actually moves, which
+ * is not always what the session handed it - a frame can be split across several GATT writes.
+ * [DumlSession] therefore logs decoded frames rather than bytes, and the two views sit next to
+ * each other in the log instead of duplicating one another.
  */
 interface DumlChannel {
 

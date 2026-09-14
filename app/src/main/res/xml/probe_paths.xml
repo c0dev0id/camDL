@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Only the probe directory is shareable; nothing else in the cache is exposed. -->
+    <cache-path name="probe" path="probe/" />
+</paths>

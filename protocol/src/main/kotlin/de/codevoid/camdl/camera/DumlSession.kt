@@ -3,7 +3,6 @@ package de.codevoid.camdl.camera
 import de.codevoid.camdl.duml.DumlCommands
 import de.codevoid.camdl.duml.DumlFrame
 import de.codevoid.camdl.duml.DumlFramer
-import de.codevoid.camdl.probe.Direction
 import de.codevoid.camdl.probe.ProbeLog
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
@@ -25,8 +24,10 @@ import kotlinx.coroutines.withTimeoutOrNull
  * the two together - frames arrive interleaved with unsolicited notifications, so a session
  * that assumed the next frame was its answer would misread the camera constantly.
  *
- * Everything sent and received is recorded in the probe log before it is interpreted, so a
- * capture stays useful even when the interpretation turns out to be wrong.
+ * Logs decoded frames, not bytes. The channel records what actually moved - which is not
+ * always what it was handed, since a frame can be split across several writes - so the log
+ * ends up with the raw hexdump and the decoded meaning next to each other rather than the
+ * same bytes twice.
  */
 class DumlSession(
     private val channel: DumlChannel,
@@ -47,7 +48,6 @@ class DumlSession(
 
     private val reader: Job = scope.launch {
         channel.inbound.collect { chunk ->
-            probe.wire(tag, Direction.RX, channel.name, chunk)
             for (frame in framer.offer(chunk)) {
                 dispatch(frame)
             }
@@ -60,7 +60,7 @@ class DumlSession(
         // Serialised because the transports underneath are not reentrant: a GATT write must
         // complete before the next one starts.
         writeLock.withLock {
-            probe.wire(tag, Direction.TX, channel.name, bytes)
+            probe.note(tag, "tx", mapOf("cmd" to key(frame).toString(), "bytes" to bytes.size.toString()))
             channel.write(bytes)
         }
     }
@@ -72,7 +72,7 @@ class DumlSession(
      * outcome during bring-up and the caller usually wants to record it and move on.
      */
     suspend fun request(frame: DumlFrame, timeout: Duration = DEFAULT_TIMEOUT): DumlFrame? {
-        val key = Key(frame.messageId, frame.commandSet, frame.commandId)
+        val key = key(frame)
         val waiter = CompletableDeferred<DumlFrame>()
 
         pendingLock.withLock {
@@ -102,20 +102,28 @@ class DumlSession(
     }
 
     private suspend fun dispatch(frame: DumlFrame) {
-        val key = Key(frame.messageId, frame.commandSet, frame.commandId)
+        val key = key(frame)
         val waiter = pendingLock.withLock { pending.remove(key) }
+
+        probe.note(
+            tag,
+            "rx",
+            mapOf(
+                "cmd" to key.toString(),
+                "flags" to "0x${frame.flags.toString(16)}",
+                "payload" to "${frame.payload.size}B",
+                "for" to if (waiter != null) "request" else "nobody",
+            ),
+        )
 
         if (waiter != null) {
             waiter.complete(frame)
         } else {
-            probe.note(
-                tag,
-                "unsolicited",
-                mapOf("cmd" to key.toString(), "flags" to "0x${frame.flags.toString(16)}"),
-            )
             _notifications.emit(frame)
         }
     }
+
+    private fun key(frame: DumlFrame) = Key(frame.messageId, frame.commandSet, frame.commandId)
 
     /**
      * Flags are excluded on purpose: a request goes out with 0x40 and its answer comes back

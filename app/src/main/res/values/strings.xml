@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">camDL</string>
+
+    <string name="action_connect">Connect to camera</string>
+    <string name="action_open_log">Probe log</string>
+    <string name="action_share_log">Share log</string>
+
+    <string name="status_idle">Not connected. Switch the camera on and keep it close.</string>
+    <string name="status_connected">Connected — reached %1$s</string>
+    <string name="status_failed">Failed at %1$s: %2$s</string>
+    <string name="status_permissions_denied">Cannot continue without %1$s</string>
 </resources>
