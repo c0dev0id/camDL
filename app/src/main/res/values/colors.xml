@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Palette shared with motoLauncher. Light theme (day); the dark overrides live in
+         values-night/colors.xml. Values defined only here apply in both modes. -->
+    <color name="background">#EEF1F5</color>
+    <color name="surface">#D6DCE4</color>
+    <color name="tile_default">#FFFFFF</color>
+    <color name="tile_focused">#2F6FED</color>
+    <color name="tile_pressed">#1E4FB0</color>
+    <color name="on_surface">#14181D</color>
+    <color name="on_surface_muted">#55606E</color>
+
+    <!-- Transfer and probe-log states. Not in motoLauncher's palette, but tuned to sit
+         next to tile_focused without competing with it. -->
+    <color name="status_ok">#1F7A4D</color>
+    <color name="status_error">#C0392B</color>
+    <color name="status_skipped">#55606E</color>
+
+    <color name="ic_launcher_background">#0F1216</color>
+</resources>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.CamDL" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
+        <item name="colorPrimary">@color/tile_focused</item>
+        <item name="colorOnPrimary">@color/on_surface</item>
+        <item name="android:colorBackground">@color/background</item>
+    </style>
+
+    <!-- Tile-styled action button, same shape language as motoLauncher's dialog actions.
+         Used for the connect / pick-destination / export controls. -->
+    <style name="Widget.CamDL.Action" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/action_height</item>
+        <item name="android:background">@drawable/tile_background</item>
+        <item name="android:gravity">center</item>
+        <item name="android:focusable">true</item>
+        <item name="android:clickable">true</item>
+        <item name="android:textColor">@color/on_surface</item>
+        <item name="android:textSize">@dimen/text_action</item>
+    </style>
+
+    <!-- The probe log is read as a hexdump, so it must be monospaced and must not wrap. -->
+    <style name="Widget.CamDL.LogText" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textSize">@dimen/text_log</item>
+        <item name="android:textColor">@color/on_surface</item>
+        <item name="android:textIsSelectable">true</item>
+    </style>
+</resources>
