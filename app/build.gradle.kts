@@ -11,7 +11,12 @@ android {
 
     defaultConfig {
         applicationId = "de.codevoid.camdl"
-        minSdk = 30
+
+        // 33 rather than 30 so there is exactly one code path: BLUETOOTH_SCAN/CONNECT (31+),
+        // NEARBY_WIFI_DEVICES (33+) and the non-deprecated GATT write and notify overloads
+        // (33+) all exist. Supporting 30 would mean three compatibility branches through the
+        // most delicate code in the app.
+        minSdk = 33
 
         // Deliberately behind compileSdk: targeting 37 makes ACCESS_LOCAL_NETWORK
         // mandatory, and it is not documented whether an app-requested local-only
