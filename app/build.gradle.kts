@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+// No Kotlin plugin: AGP 9 has built-in Kotlin support and rejects org.jetbrains.kotlin.android.
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
 }
 
 android {
