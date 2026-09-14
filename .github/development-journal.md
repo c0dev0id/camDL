@@ -1,0 +1,94 @@
+# Development journal
+
+## Software stack
+
+| Piece | Choice |
+|---|---|
+| Build | Gradle 9.7.1, AGP 9.4.0, Kotlin 2.4.20, JVM target 17 |
+| SDK | minSdk 30, compileSdk 37, targetSdk 36 |
+| UI | Views + viewBinding, Material 3 DayNight, RecyclerView, ConstraintLayout |
+| Async | Coroutines |
+| HTTP | OkHttp 5 |
+| Tests | JUnit 5 in `:protocol`; no Robolectric |
+| CI | GitHub Actions, signed release APK published as the rolling `dev` pre-release |
+
+Two modules. `:protocol` is pure Kotlin/JVM and holds the byte-level protocol work,
+the transfer decision logic and the probe log. `:app` holds the Android transports,
+the SAF destination and the UI.
+
+## Target hardware
+
+- **Primary:** DJI Osmo Action 5 Pro
+- **Secondary:** Insta360 Ace Pro
+- **Destination:** a USB drive attached to the phone, via the Storage Access Framework
+
+## Key decisions
+
+**Two modules, not three, and the split is about testability.** The developer cannot
+build Android locally and every on-device test costs a CI build plus a sideload.
+Anything that can be decided without a device — framing, checksums, reassembly,
+skip/resume/conflict — lives in `:protocol` where it runs in seconds on CI. A separate
+`:transport` module would have exactly one consumer, so it can be extracted later if
+that ever changes.
+
+**No step or state-machine framework.** An earlier design had camera profiles as a
+`List<Step>` over a mutable context bag, so a debug UI could run steps individually.
+That UI was dropped (iterate in code instead), which removed the only thing the
+indirection bought. The connect chain is plain suspend functions composed in one
+`connect()`, each wrapped in `probe.stage(...)`. Typed handles pass between them, so
+the compiler enforces the ordering and there is no bag to keep consistent.
+
+**The probe log is the deliverable, not a debugging aid.** With a slow test loop, a run
+that reports only "it failed" is a wasted round trip. Everything the transports do is
+recorded verbatim, including bytes nobody understands yet.
+
+**One log format, not two.** The design called for a JSONL sink beside the rendered
+text. Dropped: `Hexdump.parse` already reads the text format back into bytes, so a
+second format would be two things to keep in step for no gain.
+
+**Redaction at render time, never at record time.** The in-memory log keeps real bytes
+because the app needs them and because a half-scrubbed capture is useless as a protocol
+fixture. Only the exported text is scrubbed, and pseudonyms are stable within a log so
+it can still be reasoned about.
+
+**Checksums computed, not tabulated.** DUML's CRC-8 and CRC-16 are ordinary reflected
+CRCs with DJI seeds. Frames are a few dozen bytes, so a 256-entry table buys nothing and
+costs 512 magic numbers that cannot be checked by eye.
+
+**AGP's built-in Kotlin is lifted to match `:protocol`.** AGP 9 compiles Kotlin itself
+and pins KGP 2.2.10. An Android module cannot read metadata from a newer compiler, so
+the root buildscript raises AGP's built-in Kotlin to the version in the catalog rather
+than letting the two modules drift.
+
+**targetSdk 36 while compileSdk is 37.** Targeting 37 makes `ACCESS_LOCAL_NETWORK`
+mandatory, and it is undocumented whether an app-requested local-only Wi-Fi network is
+exempt. That variable is introduced on its own once the camera protocol works, so a
+failure there is unambiguous.
+
+**File identity is name plus size, with no date.** SAF offers no reliable way to stamp a
+destination file with the camera's capture time, and exFAT timestamps are 2-second
+granular and timezone-less, so a date read back only says when the copy was written.
+DJI filenames embed the capture timestamp anyway.
+
+## Core features
+
+Current state is the M1 foundation: probe log, DUML codec, CI. The camera transports
+are not implemented yet.
+
+1. **Find and connect to a camera.** DJI: BLE pair, provision Wi-Fi, join the camera's
+   AP, open a DUML session over UDP.
+2. **List media and let the user pick.**
+3. **Pick a destination** — a SAF tree, normally on a USB drive.
+4. **Transfer robustly.** Skip what is already complete, resume what is partial,
+   suffix `_1`, `_2` on a genuine name collision. Resume is required rather than nice
+   to have: DJI transfers are known to cut around 760 MB on some bodies.
+5. **Export the probe log** for whatever did not work.
+
+## Open questions
+
+- Does `ACCESS_LOCAL_NETWORK` gate traffic on an app-requested local-only network?
+- Does `0x07/0x47` push AP credentials to the camera, or report the ones it chose?
+- Do these cameras enumerate over USB as MTP (usable through SAF) or as mass storage
+  (not natively mountable)? Untested, and it would be the fastest transfer path.
+- Does the Insta360 Ace Pro answer the OSC HTTP API, or does it need the protobuf
+  transport on TCP 6666?

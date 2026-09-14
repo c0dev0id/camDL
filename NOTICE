@@ -1,0 +1,18 @@
+camDL
+Copyright (c) 2026 c0dev0id
+
+This product includes protocol knowledge derived from the following projects.
+
+---
+
+osmosis - https://github.com/KonradIT/osmosis
+MIT License
+
+The DUML frame layout, the checksum parameters, the BLE pairing and Wi-Fi
+provisioning command values, and the media manifest and download endpoints used
+by camDL's DJI support were all published by this project, which documents them
+against an Osmo Action 5 Pro. camDL implements them independently from those
+notes; no source was copied.
+
+osmosis in turn credits dji-remote (https://github.com/dimadesu/dji-remote, MIT)
+for the DUML checksum algorithm.
