@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import de.codevoid.camdl.probe.Direction
 import de.codevoid.camdl.probe.ProbeLog
@@ -193,7 +194,7 @@ class GattClient private constructor(
         }
         probe.wire(tag, Direction.TX, "gatt/${short(characteristic.uuid)}", value)
         operation("write ${short(characteristic.uuid)}") {
-            gatt.writeCharacteristic(characteristic, value, type) == BluetoothGatt.GATT_SUCCESS
+            gatt.writeCharacteristic(characteristic, value, type) == BluetoothStatusCodes.SUCCESS
         }
     }
 
@@ -207,7 +208,7 @@ class GattClient private constructor(
 
         operation("subscribe ${short(characteristic.uuid)}") {
             gatt.writeDescriptor(cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) ==
-                BluetoothGatt.GATT_SUCCESS
+                BluetoothStatusCodes.SUCCESS
         }
     }
 
@@ -248,8 +249,13 @@ class GattClient private constructor(
             // One callback for the whole life of the connection, registered here: a second
             // callback object passed to connectGatt would take over and the client's own would
             // never fire.
-            client.gatt = device.connectGatt(context, false, client.callback, BluetoothDevice.TRANSPORT_LE)
-                ?: throw IOException("connectGatt returned null")
+            //
+            // This overload is deprecated in API 37 in favour of one taking
+            // BluetoothGattConnectionSettings and an Executor. Calling that would need a version
+            // check, which is the branching minSdk 33 exists to avoid, and it still works on 37.
+            @Suppress("DEPRECATION")
+            val connection = device.connectGatt(context, false, client.callback, BluetoothDevice.TRANSPORT_LE)
+            client.gatt = connection ?: throw IOException("connectGatt returned null")
 
             try {
                 withTimeoutOrNull(CONNECT_TIMEOUT) { client.connected.await() }
