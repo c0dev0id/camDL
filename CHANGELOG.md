@@ -33,5 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Connecting no longer gives up when the camera's Bluetooth link ends during Wi-Fi setup. The
+  camera stops answering and the link times out a few seconds after being asked to bring up its
+  access point, which is what its radio switching to Wi-Fi looks like from the Bluetooth side —
+  so the connection was being abandoned at the moment it started working.
+- If no access point appears under the name the camera was given, camDL now offers to join one
+  whose name starts with "Osmo" instead.
+- Bluetooth disconnect reasons are written to the log in words rather than as a bare number.
 - The app requested no internet permission, so connecting to the camera's access point would
   have been refused even when everything else worked.

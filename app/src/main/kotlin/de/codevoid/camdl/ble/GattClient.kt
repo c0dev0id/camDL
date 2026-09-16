@@ -67,14 +67,14 @@ class GattClient private constructor(
             probe.note(
                 tag,
                 "connection state",
-                mapOf("state" to stateName(newState), "status" to status.toString()),
+                mapOf("state" to stateName(newState), "status" to statusName(status)),
             )
             when {
                 newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS ->
                     connected.complete(Unit)
 
                 newState == BluetoothProfile.STATE_DISCONNECTED -> {
-                    val failure = IOException("disconnected with status $status")
+                    val failure = IOException("disconnected, status ${statusName(status)}")
                     connected.completeExceptionally(failure)
                     pending?.completeExceptionally(failure)
                     incoming.close(failure)
@@ -265,6 +265,22 @@ class GattClient private constructor(
                 throw t
             }
             return client
+        }
+
+        /**
+         * The disconnect code is the single most informative byte in a BLE capture and it is
+         * useless as a bare number. 8 and 19 in particular mean opposite things: the peer
+         * vanished, or the peer hung up deliberately.
+         */
+        internal fun statusName(status: Int) = when (status) {
+            0 -> "0 ok"
+            8 -> "8 supervision timeout (the peer stopped answering)"
+            19 -> "19 terminated by the peer"
+            22 -> "22 terminated locally"
+            34 -> "34 link manager timeout"
+            62 -> "62 connection failed to establish"
+            133 -> "133 generic GATT error"
+            else -> status.toString()
         }
 
         private fun stateName(state: Int) = when (state) {

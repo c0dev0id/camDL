@@ -7,6 +7,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.wifi.WifiNetworkSpecifier
+import android.os.PatternMatcher
 import de.codevoid.camdl.probe.ProbeLog
 import java.io.IOException
 import java.net.DatagramSocket
@@ -41,11 +42,47 @@ class WifiJoiner(
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
         ?: throw IOException("no ConnectivityManager")
 
-    suspend fun join(ssid: String, passphrase: String, timeout: Duration = JOIN_TIMEOUT): WifiLease {
-        val specifier = WifiNetworkSpecifier.Builder()
-            .setSsid(ssid)
-            .setWpa2Passphrase(passphrase)
-            .build()
+    suspend fun join(ssid: String, passphrase: String, timeout: Duration = JOIN_TIMEOUT): WifiLease =
+        request(
+            describedAs = ssid,
+            specifier = WifiNetworkSpecifier.Builder()
+                .setSsid(ssid)
+                .setWpa2Passphrase(passphrase)
+                .build(),
+            passphrase = passphrase,
+            timeout = timeout,
+        )
+
+    /**
+     * Joins any access point whose name starts with [prefix].
+     *
+     * A fallback for when the camera raises an access point under a name of its own rather than
+     * the one it was handed. A pattern always puts Android's own picker in front of the user,
+     * which is the point as much as the connection is: the picker names what is actually on the
+     * air, which nothing else here can see without location permission.
+     */
+    suspend fun joinMatching(
+        prefix: String,
+        passphrase: String,
+        timeout: Duration = JOIN_TIMEOUT,
+    ): WifiLease =
+        request(
+            describedAs = "$prefix*",
+            specifier = WifiNetworkSpecifier.Builder()
+                .setSsidPattern(PatternMatcher(prefix, PatternMatcher.PATTERN_PREFIX))
+                .setWpa2Passphrase(passphrase)
+                .build(),
+            passphrase = passphrase,
+            timeout = timeout,
+        )
+
+    private suspend fun request(
+        describedAs: String,
+        specifier: WifiNetworkSpecifier,
+        passphrase: String,
+        timeout: Duration,
+    ): WifiLease {
+        val ssid = describedAs
 
         val request = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)

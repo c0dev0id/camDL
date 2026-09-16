@@ -138,10 +138,30 @@ camera over its own access point. Media listing and transfer are M2 and M3.
    to have: DJI transfers are known to cut around 760 MB on some bodies.
 5. **Export the probe log** for whatever did not work.
 
+## What the DJI camera actually does
+
+Established from a capture against an Osmo Action 5 Pro (`OsmoAction5Pro5ECB`):
+
+- It advertises `OsmoAction5Pro<serial>`, and holds `fff3`, `fff4` and `fff5` in service `fff0`.
+- It grants an MTU of 517 when asked for 500.
+- Pairing works: `0x07/0x45` is answered with flags `0xC0` and payload `00 02`.
+- **A response swaps the target.** Our `0x0702` came back as `0x0207`, so correlating on the
+  target field would never have matched anything. Message id plus command set and id is what
+  pairs a reply to its request.
+- **`0x07/0x47` is never answered.** A few seconds later the Bluetooth link dies with GATT
+  status 8, a supervision timeout rather than a clean teardown — which is what a combined radio
+  switching itself to Wi-Fi access point mode looks like from the Bluetooth side. The connect
+  chain therefore treats a link ending during provisioning as expected and goes on to join.
+- Unrelated status frames arrive unsolicited on the same characteristic (`0x0d/0x02` from
+  target `0x2505`), so a session that assumed the next frame in was its answer would misread
+  the camera constantly.
+
 ## Open questions
 
 - Does `ACCESS_LOCAL_NETWORK` gate traffic on an app-requested local-only network?
-- Does `0x07/0x47` push AP credentials to the camera, or report the ones it chose?
+- Does the camera use the SSID and passphrase handed to it by `0x07/0x47`, or raise an access
+  point named by itself? It never answers the command, so the only way to tell is whether the
+  proposed name appears on the air; the prefix-match fallback exists to answer that.
 - Do these cameras enumerate over USB as MTP (usable through SAF) or as mass storage
   (not natively mountable)? Untested, and it would be the fastest transfer path.
 - Does the Insta360 Ace Pro answer the OSC HTTP API, or does it need the protobuf

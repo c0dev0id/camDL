@@ -13,6 +13,7 @@ import de.codevoid.camdl.wifi.WifiJoiner
 import de.codevoid.camdl.wifi.WifiLease
 import java.io.IOException
 import java.util.UUID
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -68,13 +69,24 @@ class DjiCamera(
         }
 
         val credentials = probe.stage("wifi-provision") {
-            val response = duml.provisionWifi(PROPOSED_SSID, PROPOSED_PASSPHRASE)
-                ?: throw IOException("the camera did not answer the Wi-Fi provisioning request")
+            // Sent rather than demanded. Against an Action 5 Pro this command produces no reply
+            // at all: the link simply stops answering a few seconds later and dies of a
+            // supervision timeout, which is what a combined radio switching itself to Wi-Fi
+            // access point mode looks like from the Bluetooth side. Treating that as a failure
+            // would abandon the connection at the exact moment it started working.
+            val response = runCatching {
+                duml.provisionWifi(PROPOSED_SSID, PROPOSED_PASSPHRASE)
+            }.onFailure {
+                probe.note(
+                    "wifi",
+                    "link ended while provisioning",
+                    mapOf("cause" to it.toString(), "expected" to "yes, the radio switches to Wi-Fi"),
+                )
+            }.getOrNull()
 
-            // The open question this milestone settles: does 0x07/0x47 tell the camera which
-            // access point to raise, or report the one it chose? Log every string in the reply
-            // and prefer them if they are there, so one run answers it either way.
-            val strings = PayloadStrings.find(response.payload)
+            // Still worth reading if it ever does answer: it would say whether 0x07/0x47 sets
+            // the access point or reports one the camera picked itself.
+            val strings = response?.payload?.let { PayloadStrings.find(it) }.orEmpty()
             probe.note(
                 "wifi",
                 "strings in provisioning response",
@@ -93,8 +105,22 @@ class DjiCamera(
             Credentials(ssid, passphrase)
         }
 
+        val wifi = WifiJoiner(context, probe)
         val lease = probe.stage("wifi-join") {
-            WifiJoiner(context, probe).join(credentials.ssid, credentials.passphrase)
+            try {
+                wifi.join(credentials.ssid, credentials.passphrase, EXACT_JOIN_TIMEOUT)
+            } catch (exact: IOException) {
+                // Nothing came up under the name we handed over, so the camera probably named
+                // its own. A prefix match puts Android's picker in front of the user, and the
+                // picker lists what is actually on the air - which is the one thing this app
+                // cannot see for itself without location permission.
+                probe.note(
+                    "wifi",
+                    "no access point under the proposed name, matching by prefix instead",
+                    mapOf("cause" to exact.toString(), "prefix" to AP_PREFIX),
+                )
+                wifi.joinMatching(AP_PREFIX, credentials.passphrase)
+            }
         }
 
         probe.stage("reachability") {
@@ -112,6 +138,20 @@ class DjiCamera(
          * real advertised name rather than an empty result that could mean anything.
          */
         const val NAME_PREFIX = "Osmo"
+
+        /**
+         * Fallback for the access point's name. The camera advertises itself over Bluetooth as
+         * `OsmoAction5Pro<serial>`, so its access point very likely carries the same prefix.
+         */
+        const val AP_PREFIX = "Osmo"
+
+        /**
+         * Shorter than the joiner's own default, because a failure here is not the end of the
+         * attempt - it is the cue to fall back to a prefix match. The access point is documented
+         * to appear about fifteen seconds after provisioning, so this is already generous, and
+         * every second spent here is a second before the user sees the picker.
+         */
+        val EXACT_JOIN_TIMEOUT = 40.seconds
 
         const val CAMERA_IP = "192.168.2.1"
 
