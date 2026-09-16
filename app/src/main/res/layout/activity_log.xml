@@ -13,7 +13,7 @@
         android:id="@+id/vertical"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@id/share"
+        app:layout_constraintBottom_toTopOf="@id/size"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -31,12 +31,48 @@
     </ScrollView>
 
     <TextView
-        android:id="@+id/share"
-        style="@style/Widget.CamDL.Action"
-        android:layout_marginTop="@dimen/action_margin_top"
-        android:text="@string/action_share_log"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:id="@+id/size"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:paddingTop="@dimen/action_margin_top"
+        android:textColor="@color/on_surface_muted"
+        android:textSize="@dimen/text_status"
+        app:layout_constraintBottom_toTopOf="@id/actions"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/actions"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/action_margin_top"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:id="@+id/toggleLogging"
+            style="@style/Widget.CamDL.Action"
+            android:layout_width="0dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/clear"
+            style="@style/Widget.CamDL.Action"
+            android:layout_width="0dp"
+            android:layout_marginStart="@dimen/tile_margin"
+            android:layout_weight="1"
+            android:text="@string/action_clear_log" />
+
+        <TextView
+            android:id="@+id/share"
+            style="@style/Widget.CamDL.Action"
+            android:layout_width="0dp"
+            android:layout_marginStart="@dimen/tile_margin"
+            android:layout_weight="1"
+            android:text="@string/action_share_log" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

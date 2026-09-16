@@ -127,6 +127,56 @@ class ProbeLogTest {
     }
 
     @Test
+    fun `the sink sees every event as it is recorded`() {
+        val seen = mutableListOf<ProbeEvent>()
+        val log = ProbeLog(clock = TickClock(), sink = { seen += it })
+
+        log.note("app", "first")
+        log.wire("ble", Direction.TX, "gatt/fff5", byteArrayOf(1, 2))
+
+        // Durability is the point: the event has to reach the sink before whatever it
+        // describes gets a chance to kill the process, not when someone asks for a snapshot.
+        assertEquals(2, seen.size)
+        assertEquals(log.snapshot().events, seen)
+    }
+
+    @Test
+    fun `a sink that throws does not take the caller down with it`() {
+        val log = ProbeLog(clock = TickClock(), sink = { throw IOException("disk full") })
+
+        log.note("app", "still recorded")
+
+        // Logging usually happens while something is already going wrong; failing to write the
+        // record must not become the more interesting failure.
+        assertEquals(1, log.snapshot().events.size)
+    }
+
+    @Test
+    fun `disabling stops recording entirely`() {
+        val seen = mutableListOf<ProbeEvent>()
+        val log = ProbeLog(clock = TickClock(), sink = { seen += it })
+
+        log.note("app", "before")
+        log.enabled = false
+        log.note("app", "while off")
+        log.enabled = true
+        log.note("app", "after")
+
+        assertEquals(listOf("before", "after"), log.snapshot().events.map { (it as ProbeEvent.Note).message })
+        assertEquals(2, seen.size)
+    }
+
+    @Test
+    fun `a disabled log records no stages either`() = runTest {
+        val log = ProbeLog(clock = TickClock())
+        log.enabled = false
+
+        log.stage("ble-pair") { }
+
+        assertEquals(0, log.snapshot().events.size)
+    }
+
+    @Test
     fun `notes carry structured fields`() {
         val log = ProbeLog(clock = TickClock())
 

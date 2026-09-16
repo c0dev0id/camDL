@@ -91,9 +91,10 @@ class MainActivity : AppCompatActivity() {
             // just reflects the last stage it reached, so the two can never disagree.
             val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    // lifecycleScope, not this withContext's scope: the session's reader has to
-                    // outlive connect(), and withContext cancels its scope on return.
-                    DjiCamera(applicationContext, probe, lifecycleScope).connect()
+                    // The application scope, not lifecycleScope or this withContext's scope:
+                    // the session's reader has to outlive both connect() returning and the
+                    // activity being recreated.
+                    DjiCamera(applicationContext, probe, CamDlApp.scope(application)).connect()
                 }
             }
 

@@ -38,6 +38,19 @@ indirection bought. The connect chain is plain suspend functions composed in one
 `connect()`, each wrapped in `probe.stage(...)`. Typed handles pass between them, so
 the compiler enforces the ordering and there is no bag to keep consistent.
 
+**The probe log is written to disk on every entry, flushed each time.** Slow and safe, by
+explicit choice. The runs worth keeping are the ones that end in a crash, and those are exactly
+the ones an in-memory log loses. Volumes are a few hundred lines per connection attempt, so the
+cost is irrelevant next to never losing a capture. Entries are rendered already redacted, which
+also makes the file safe to share as it stands — including entries from earlier runs, where a
+fresh process could no longer know which values were secrets.
+
+**Nothing in the reader may throw.** An uncaught exception in a coroutine takes the whole
+process down. `DumlSession`'s reader catches everything, records it and fails the requests
+waiting on it. This was a real crash: the camera drops the BLE link after pairing, `GattClient`
+closed the notification channel with a cause, and `receiveAsFlow` rethrew it into a bare
+`scope.launch`.
+
 **The probe log is the deliverable, not a debugging aid.** With a slow test loop, a run
 that reports only "it failed" is a wasted round trip. Everything the transports do is
 recorded verbatim, including bytes nobody understands yet.

@@ -3,25 +3,18 @@ package de.codevoid.camdl.probe
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
-import java.io.File
 
 /**
- * Writes a rendered probe log to cache and hands back a share intent.
+ * Shares the probe log file.
  *
- * Redaction is applied here, at the only point where the log leaves the device.
+ * The file is shared as it stands rather than re-rendered: entries were written already
+ * redacted, so what is on disk is what is safe to send - including entries from runs that
+ * ended before this process started.
  */
 object ProbeExport {
 
-    fun render(log: ProbeLog): String = ProbeRenderer.render(log.snapshot(), log.redactor)
-
-    fun shareIntent(context: Context, log: ProbeLog): Intent {
-        val directory = File(context.cacheDir, "probe").apply { mkdirs() }
-        // One file, overwritten: these are shared immediately and keeping a history would just
-        // accumulate captures containing Wi-Fi credentials on disk.
-        val file = File(directory, "camdl-probe.txt")
-        file.writeText(render(log))
-
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.probe", file)
+    fun shareIntent(context: Context, probeFile: ProbeFile): Intent {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.probe", probeFile.forSharing())
 
         return Intent.createChooser(
             Intent(Intent.ACTION_SEND).apply {

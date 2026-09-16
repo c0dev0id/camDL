@@ -4,7 +4,12 @@
 
     <string name="action_connect">Connect to camera</string>
     <string name="action_open_log">Probe log</string>
-    <string name="action_share_log">Share log</string>
+    <string name="action_share_log">Share</string>
+    <string name="action_clear_log">Clear</string>
+    <string name="action_logging_on">Logging: on</string>
+    <string name="action_logging_off">Logging: OFF</string>
+    <string name="confirm_clear_log">Delete the probe log, including entries from earlier runs?</string>
+    <string name="log_size">%1$d kB on disk</string>
 
     <string name="status_idle">Not connected. Switch the camera on and keep it close.</string>
     <string name="status_connected">Connected — reached %1$s</string>

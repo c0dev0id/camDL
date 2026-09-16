@@ -1,7 +1,7 @@
 package de.codevoid.camdl.probe
 
 /**
- * Turns a [ProbeLog.Snapshot] into the text that actually gets shared.
+ * Turns probe events into the text that gets read and shared.
  *
  * Plain ASCII, fixed columns, `hexdump -C` payloads: it has to survive being pasted into a
  * terminal, an issue tracker or a chat window without reflowing into nonsense.
@@ -29,17 +29,34 @@ object ProbeRenderer {
         append("\n\n")
 
         for (event in snapshot.events) {
-            appendLine(line(event, redactor))
-            if (event is ProbeEvent.Wire) {
-                val scrubbed = redactor.bytes(event.bytes)
-                for (dump in Hexdump.format(scrubbed.bytes, PAYLOAD_INDENT, dumpLimit)) {
-                    appendLine(dump)
-                }
-                if (scrubbed.replacements > 0) {
-                    appendLine(PAYLOAD_INDENT + "(${scrubbed.replacements} redacted span(s) overwritten with 'X')")
-                }
+            for (line in renderEvent(event, redactor, dumpLimit)) {
+                appendLine(line)
             }
         }
+    }
+
+    /**
+     * One event as the lines it occupies: its own line, plus a hexdump when it carries bytes.
+     *
+     * Separate from [render] so the same formatting can be appended to a file the moment an
+     * event happens, rather than only when someone asks for the whole log.
+     */
+    fun renderEvent(
+        event: ProbeEvent,
+        redactor: Redactor,
+        dumpLimit: Int = DEFAULT_DUMP_LIMIT,
+    ): List<String> {
+        val lines = ArrayList<String>(4)
+        lines += line(event, redactor)
+
+        if (event is ProbeEvent.Wire) {
+            val scrubbed = redactor.bytes(event.bytes)
+            lines += Hexdump.format(scrubbed.bytes, PAYLOAD_INDENT, dumpLimit)
+            if (scrubbed.replacements > 0) {
+                lines += PAYLOAD_INDENT + "(${scrubbed.replacements} redacted span(s) overwritten with 'X')"
+            }
+        }
+        return lines
     }
 
     private fun line(event: ProbeEvent, redactor: Redactor): String = buildString {

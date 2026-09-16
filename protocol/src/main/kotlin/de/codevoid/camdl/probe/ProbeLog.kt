@@ -22,6 +22,14 @@ fun interface Clock {
 class ProbeLog(
     private val capacity: Int = DEFAULT_CAPACITY,
     private val clock: Clock = Clock.SYSTEM,
+    /**
+     * Called for every event as it is recorded, while the lock is held, so whatever it writes
+     * ends up in the same order the events happened.
+     *
+     * Deliberately synchronous: the point of a durable sink is that an event is on disk before
+     * the thing it describes has a chance to kill the process.
+     */
+    private val sink: ((ProbeEvent) -> Unit)? = null,
 ) {
     private val lock = Any()
     private val started = clock.nanos()
@@ -29,6 +37,15 @@ class ProbeLog(
     private var dropped = 0
 
     val redactor = Redactor()
+
+    /**
+     * Recording can be switched off entirely.
+     *
+     * Not a filter on what gets kept - nothing is recorded at all, so the cost of a durable
+     * sink disappears with it.
+     */
+    @Volatile
+    var enabled: Boolean = true
 
     fun note(tag: String, message: String, fields: Map<String, String> = emptyMap()) {
         record(ProbeEvent.Note(now(), tag, message, fields))
@@ -73,13 +90,20 @@ class ProbeLog(
         val durationNanos: Long,
     )
 
-    private fun record(event: ProbeEvent) = synchronized(lock) {
-        // Drop from the front: on a long download the interesting part is always the end.
-        while (events.size >= capacity) {
-            events.removeFirst()
-            dropped++
+    private fun record(event: ProbeEvent) {
+        if (!enabled) return
+        synchronized(lock) {
+            // Drop from the front: on a long download the interesting part is always the end.
+            while (events.size >= capacity) {
+                events.removeFirst()
+                dropped++
+            }
+            events.addLast(event)
+
+            // Inside the lock so the file order matches the in-memory order. A sink that throws
+            // must not take down whatever was being logged, which is often already a failure.
+            sink?.let { runCatching { it(event) } }
         }
-        events.addLast(event)
     }
 
     private fun now() = clock.nanos() - started

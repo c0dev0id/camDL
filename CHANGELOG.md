@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DJI camera connection: find the camera over Bluetooth LE, pair with it, ask it for a Wi-Fi
   access point, join that access point and confirm the camera is reachable. Each step appears
   in the probe log as a named stage with its timing, so a failure says where it stopped.
-- A screen showing the probe log, and a share button that exports it with credentials and
-  identifiers replaced by pseudonyms.
+- A screen showing the probe log, with buttons to share it, switch recording off and on, and
+  clear it. Credentials and identifiers are replaced by pseudonyms before anything is written.
+- The probe log is written to disk as each entry happens and kept across restarts, with a
+  banner marking where each run begins, so a crash or a force-stop no longer loses the
+  capture that would have explained it.
 - Continuous integration producing a signed APK as a rolling `dev` pre-release.

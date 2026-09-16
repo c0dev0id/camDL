@@ -28,6 +28,11 @@ class DjiCamera(
     private val scope: CoroutineScope,
 ) {
     suspend fun connect(namePrefix: String = NAME_PREFIX): DjiLink {
+        // Registered before anything is sent: entries reach the log file the instant they are
+        // recorded, so a secret registered afterwards would already be on disk in the clear.
+        probe.redactor.register(PROPOSED_SSID, "SSID")
+        probe.redactor.register(PROPOSED_PASSPHRASE, "PSK")
+
         val device = probe.stage("ble-scan") {
             BleScanner(context, probe).find(namePrefix)
         }
@@ -78,6 +83,8 @@ class DjiCamera(
 
             val ssid = strings.getOrNull(0)?.value ?: PROPOSED_SSID
             val passphrase = strings.getOrNull(1)?.value ?: PROPOSED_PASSPHRASE
+            probe.redactor.register(ssid, "SSID")
+            probe.redactor.register(passphrase, "PSK")
             probe.note(
                 "wifi",
                 "credentials",

@@ -4,6 +4,7 @@ import de.codevoid.camdl.duml.DumlCommands
 import de.codevoid.camdl.duml.DumlFrame
 import de.codevoid.camdl.duml.DumlFramer
 import de.codevoid.camdl.probe.ProbeLog
+import java.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -46,12 +47,42 @@ class DumlSession(
     /** Frames that answered nobody: status pushes, heartbeat replies, unsolicited events. */
     val notifications: SharedFlow<DumlFrame> = _notifications
 
+    /**
+     * Drains the channel for the life of the session.
+     *
+     * Every failure is caught. An uncaught exception in a coroutine takes the whole process
+     * down, and a transport dying is an ordinary event here - cameras drop BLE links - so
+     * letting one escape would kill the app and with it the log that explains why.
+     */
     private val reader: Job = scope.launch {
-        channel.inbound.collect { chunk ->
-            for (frame in framer.offer(chunk)) {
-                dispatch(frame)
+        try {
+            channel.inbound.collect { chunk ->
+                for (frame in framer.offer(chunk)) {
+                    dispatch(frame)
+                }
             }
+            end("link closed", null)
+        } catch (t: CancellationException) {
+            throw t
+        } catch (t: Throwable) {
+            end("link failed", t)
         }
+    }
+
+    /**
+     * Records why the link ended and fails everyone waiting on it.
+     *
+     * Without this, a request in flight when the link dropped would sit out its full timeout
+     * before reporting something far less specific than the real cause.
+     */
+    private suspend fun end(what: String, cause: Throwable?) {
+        probe.note(tag, what, if (cause == null) emptyMap() else mapOf("cause" to cause.toString()))
+
+        val failure = cause ?: IOException("the link closed")
+        val orphaned = pendingLock.withLock {
+            pending.values.toList().also { pending.clear() }
+        }
+        orphaned.forEach { it.completeExceptionally(failure) }
     }
 
     /** Sends a frame without waiting for anything back. */
@@ -69,7 +100,9 @@ class DumlSession(
      * Sends [frame] and waits for the matching response.
      *
      * Returns null on timeout rather than throwing, because a silent camera is an ordinary
-     * outcome during bring-up and the caller usually wants to record it and move on.
+     * outcome during bring-up and the caller usually wants to record it and move on. A link
+     * that *dies* is different and does throw - it is a specific, actionable cause, and
+     * waiting out the timeout to report something vaguer would be worse.
      */
     suspend fun request(frame: DumlFrame, timeout: Duration = DEFAULT_TIMEOUT): DumlFrame? {
         val key = key(frame)

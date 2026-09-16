@@ -5,8 +5,10 @@ import de.codevoid.camdl.duml.DumlFrame
 import de.codevoid.camdl.probe.Direction
 import de.codevoid.camdl.probe.ProbeEvent
 import de.codevoid.camdl.probe.ProbeLog
+import java.io.IOException
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -41,6 +43,15 @@ class DumlSessionTest {
         fun deliver(bytes: ByteArray) {
             probe.wire("fake", Direction.RX, name, bytes)
             incoming.trySend(bytes)
+        }
+
+        /** What GattClient does when the BLE link drops. */
+        fun fail(cause: Throwable) {
+            incoming.close(cause)
+        }
+
+        fun closeCleanly() {
+            incoming.close()
         }
     }
 
@@ -179,6 +190,63 @@ class DumlSessionTest {
         val notes = events.filterIsInstance<ProbeEvent.Note>()
         assertTrue(notes.any { it.message == "tx" && it.fields["cmd"] == "0x7/0x45#0x8092" }, "got $notes")
         assertTrue(notes.any { it.message == "rx" && it.fields["for"] == "request" }, "got $notes")
+    }
+
+    // The three tests below run the session on the test scope rather than backgroundScope,
+    // because each one ends the channel: the reader then completes on its own, and foreground
+    // work is what advanceUntilIdle actually drives.
+
+    @Test
+    fun `a link that dies does not bring the process down`() = runTest {
+        val log = ProbeLog()
+        val channel = FakeChannel(log)
+        DumlSession(channel, log, this)
+        runCurrent()
+
+        channel.fail(IOException("disconnected with status 19"))
+        advanceUntilIdle()
+
+        // The reader is a bare coroutine: an exception escaping it would reach the scope's
+        // handler and take the whole app down, losing the log that explains why. This test
+        // completing at all is half the assertion - an escaped throwable fails runTest.
+        assertTrue(
+            log.snapshot().events.filterIsInstance<ProbeEvent.Note>()
+                .any { it.message == "link failed" && it.fields["cause"]?.contains("status 19") == true },
+            "the cause has to survive into the log: ${log.snapshot().events}",
+        )
+    }
+
+    @Test
+    fun `a request in flight when the link dies fails instead of waiting out its timeout`() = runTest {
+        val log = ProbeLog()
+        val channel = FakeChannel(log)
+        val session = DumlSession(channel, log, this)
+
+        // runCatching inside the async: a failing async cancels its parent, which here is the
+        // test itself.
+        val pending = async { runCatching { session.request(request(), timeout = 30.seconds) } }
+        runCurrent()
+        channel.fail(IOException("disconnected with status 19"))
+
+        val thrown = assertNotNull(pending.await().exceptionOrNull())
+        assertTrue(thrown.message?.contains("status 19") == true, "got ${thrown.message}")
+        // Reporting the real cause now beats reporting a vaguer one thirty seconds from now.
+        assertEquals(0L, testScheduler.currentTime)
+    }
+
+    @Test
+    fun `a link closing cleanly is recorded too`() = runTest {
+        val log = ProbeLog()
+        val channel = FakeChannel(log)
+        DumlSession(channel, log, this)
+        runCurrent()
+
+        channel.closeCleanly()
+        advanceUntilIdle()
+
+        assertTrue(
+            log.snapshot().events.filterIsInstance<ProbeEvent.Note>().any { it.message == "link closed" },
+        )
     }
 
     @Test
