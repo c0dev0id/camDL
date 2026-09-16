@@ -59,10 +59,12 @@ recorded verbatim, including bytes nobody understands yet.
 text. Dropped: `Hexdump.parse` already reads the text format back into bytes, so a
 second format would be two things to keep in step for no gain.
 
-**Redaction at render time, never at record time.** The in-memory log keeps real bytes
+**Redaction at render time, never at record time.** Recorded events hold the real bytes,
 because the app needs them and because a half-scrubbed capture is useless as a protocol
-fixture. Only the exported text is scrubbed, and pseudonyms are stable within a log so
-it can still be reasoned about.
+fixture. Everything that renders them — the screen, the file, the export — scrubs on the way
+out, and pseudonyms are stable within a log so it can still be reasoned about. The consequence
+is that a value must be registered with the redactor *before* the frame carrying it is logged,
+since the file entry is written immediately and there is no later pass over it.
 
 **Checksums computed, not tabulated.** DUML's CRC-8 and CRC-16 are ordinary reflected
 CRCs with DJI seeds. Frames are a few dozen bytes, so a 256-entry table buys nothing and
@@ -112,8 +114,8 @@ DJI filenames embed the capture timestamp anyway.
 
 ## Core features
 
-Current state is the M1 foundation: probe log, DUML codec, CI. The camera transports
-are not implemented yet.
+M1 is built: probe log, DUML codec, CI, and the DJI connect chain through to reaching the
+camera over its own access point. Media listing and transfer are M2 and M3.
 
 1. **Find and connect to a camera.** DJI: BLE pair, provision Wi-Fi, join the camera's
    AP, open a DUML session over UDP.
