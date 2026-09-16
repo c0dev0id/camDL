@@ -26,7 +26,12 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      # packages defaults to "tools platform-tools", and the obsolete "tools" package no
+      # longer exists in the SDK repository, so the default fails outright on current runner
+      # images. Only platform-tools is needed here; AGP fetches the platform itself.
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - uses: gradle/actions/setup-gradle@v4
 
@@ -46,7 +51,12 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      # packages defaults to "tools platform-tools", and the obsolete "tools" package no
+      # longer exists in the SDK repository, so the default fails outright on current runner
+      # images. Only platform-tools is needed here; AGP fetches the platform itself.
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - uses: gradle/actions/setup-gradle@v4
 
@@ -76,7 +86,12 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      # packages defaults to "tools platform-tools", and the obsolete "tools" package no
+      # longer exists in the SDK repository, so the default fails outright on current runner
+      # images. Only platform-tools is needed here; AGP fetches the platform itself.
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - uses: gradle/actions/setup-gradle@v4
 
