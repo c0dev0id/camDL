@@ -4,6 +4,7 @@
 
     <string name="action_connect">Connect to camera</string>
     <string name="action_open_log">Probe log</string>
+    <string name="action_update">Check for update</string>
     <string name="action_share_log">Share</string>
     <string name="action_clear_log">Clear</string>
     <string name="action_logging_on">Logging: on</string>
@@ -15,4 +16,11 @@
     <string name="status_connected">Connected — reached %1$s</string>
     <string name="status_failed">Failed at %1$s: %2$s</string>
     <string name="status_permissions_denied">Cannot continue without %1$s</string>
+
+    <string name="update_checking">Checking for a new build…</string>
+    <string name="update_current">Already running the published build (%1$s)</string>
+    <string name="update_available">New build %1$s — download and install?</string>
+    <string name="update_downloading">Downloading %1$s…</string>
+    <string name="update_failed">Update check failed: %1$s</string>
+    <string name="update_needs_permission">Android needs permission to let camDL install apps. Open settings?</string>
 </resources>

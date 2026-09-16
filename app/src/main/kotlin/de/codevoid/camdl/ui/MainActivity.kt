@@ -5,9 +5,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import de.codevoid.camdl.BuildConfig
 import de.codevoid.camdl.CamDlApp
 import de.codevoid.camdl.R
 import de.codevoid.camdl.databinding.ActivityMainBinding
@@ -15,6 +17,9 @@ import de.codevoid.camdl.dji.DjiCamera
 import de.codevoid.camdl.dji.DjiLink
 import de.codevoid.camdl.probe.ProbeEvent
 import de.codevoid.camdl.probe.ProbeLog
+import de.codevoid.camdl.update.ReleaseAsset
+import de.codevoid.camdl.update.ReleaseVersion
+import de.codevoid.camdl.update.Updater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,6 +68,7 @@ class MainActivity : AppCompatActivity() {
         binding.openLog.setOnClickListener {
             startActivity(Intent(this, LogActivity::class.java))
         }
+        binding.update.setOnClickListener { checkForUpdate() }
 
         status(getString(R.string.status_idle))
     }
@@ -109,6 +115,68 @@ class MainActivity : AppCompatActivity() {
             )
             connecting = false
             binding.connect.isEnabled = true
+        }
+    }
+
+    private fun checkForUpdate() {
+        binding.update.isEnabled = false
+        status(getString(R.string.update_checking))
+
+        lifecycleScope.launch {
+            val updater = Updater(applicationContext, probe)
+            val found = runCatching { withContext(Dispatchers.IO) { updater.check() } }
+
+            found
+                .onSuccess { asset ->
+                    if (asset == null) {
+                        status(getString(R.string.update_current, BuildConfig.VERSION_NAME))
+                    } else {
+                        offer(updater, asset)
+                    }
+                }
+                .onFailure {
+                    status(getString(R.string.update_failed, it.message ?: it.javaClass.simpleName))
+                }
+
+            binding.update.isEnabled = true
+        }
+    }
+
+    private fun offer(updater: Updater, asset: ReleaseAsset) {
+        val version = ReleaseVersion.versionOf(asset.name) ?: asset.name
+
+        AlertDialog.Builder(this)
+            .setMessage(getString(R.string.update_available, version))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ -> download(updater, asset) }
+            .show()
+    }
+
+    private fun download(updater: Updater, asset: ReleaseAsset) {
+        // Asked for before downloading rather than after: without it the installer opens and
+        // immediately refuses, which reads as the update being broken rather than as a setting
+        // that has not been granted.
+        if (!updater.canInstall()) {
+            AlertDialog.Builder(this)
+                .setMessage(R.string.update_needs_permission)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    startActivity(updater.allowInstallsIntent())
+                }
+                .show()
+            return
+        }
+
+        binding.update.isEnabled = false
+        status(getString(R.string.update_downloading, asset.name))
+
+        lifecycleScope.launch {
+            runCatching { withContext(Dispatchers.IO) { updater.download(asset) } }
+                .onSuccess { startActivity(updater.installIntent(it)) }
+                .onFailure {
+                    status(getString(R.string.update_failed, it.message ?: it.javaClass.simpleName))
+                }
+            binding.update.isEnabled = true
         }
     }
 

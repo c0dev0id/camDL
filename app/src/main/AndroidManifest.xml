@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Sockets to the camera on its own access point, and the update check against
+         GitHub. Required for both: without it even a connection to 192.168.2.1 is refused. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Handing a downloaded APK to the system package installer. Nothing installs silently;
+         this only allows camDL to be the app that asks. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!-- BLE is used to find and pair with a camera, never to derive location. -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"

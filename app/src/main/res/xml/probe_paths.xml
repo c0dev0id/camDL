@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <!-- Only the probe directory is shareable; nothing else in app storage is exposed. -->
+    <!-- Only these two directories are shareable; nothing else in app storage is exposed. -->
     <files-path name="probe" path="probe/" />
+    <files-path name="updates" path="updates/" />
 </paths>

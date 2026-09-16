@@ -27,4 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The probe log is written to disk as each entry happens and kept across restarts, with a
   banner marking where each run begins, so a crash or a force-stop no longer loses the
   capture that would have explained it.
+- An update button that checks the published development build, downloads it when it differs
+  from the installed one, and hands it to the system package installer.
 - Continuous integration producing a signed APK as a rolling `dev` pre-release.
+
+### Fixed
+
+- The app requested no internet permission, so connecting to the camera's access point would
+  have been refused even when everything else worked.

@@ -107,6 +107,18 @@ point has no internet, so Android keeps the default route on cellular and anythi
 leaves by the wrong interface — failing in a way that looks exactly like a camera that is not
 answering. `WifiLease` hands out pre-bound sockets rather than exposing the raw `Network`.
 
+**The updater offers a *different* build, not a newer one.** CI publishes to a rolling `dev`
+tag and names the APK after the commit it came from. Commit hashes have no order, so claiming
+to know which of two builds is newer would be a lie; "this is not the build you are running" is
+both true and sufficient. The asset-name parsing lives in the pure module and is tested,
+because a CI rename would otherwise fail silently in either direction — never offering an
+update, or offering the same one forever.
+
+**The updater uses an unbound HTTP client.** It reaches GitHub over whatever network the phone
+normally uses, which only works because camera sockets are bound individually. Had the process
+been pinned with `bindProcessToNetwork`, the update check would be trying to reach GitHub
+through a camera.
+
 **File identity is name plus size, with no date.** SAF offers no reliable way to stamp a
 destination file with the camera's capture time, and exFAT timestamps are 2-second
 granular and timezone-less, so a date read back only says when the copy was written.

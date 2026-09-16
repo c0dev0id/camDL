@@ -36,17 +36,37 @@
         style="@style/Widget.CamDL.Action"
         android:layout_marginTop="@dimen/action_margin_top"
         android:text="@string/action_connect"
-        app:layout_constraintBottom_toTopOf="@id/openLog"
+        app:layout_constraintBottom_toTopOf="@id/secondary"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <TextView
-        android:id="@+id/openLog"
-        style="@style/Widget.CamDL.Action"
+    <!-- Connect is the primary action and keeps a full-width target; the two secondary ones
+         share a row beneath it. -->
+    <LinearLayout
+        android:id="@+id/secondary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/action_margin_top"
-        android:text="@string/action_open_log"
+        android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:id="@+id/openLog"
+            style="@style/Widget.CamDL.Action"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:text="@string/action_open_log" />
+
+        <TextView
+            android:id="@+id/update"
+            style="@style/Widget.CamDL.Action"
+            android:layout_width="0dp"
+            android:layout_marginStart="@dimen/tile_margin"
+            android:layout_weight="1"
+            android:text="@string/action_update" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
